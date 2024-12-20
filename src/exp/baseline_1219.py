@@ -160,6 +160,11 @@ logging.basicConfig(
 )
 # ロガーの作成
 logger = logging.getLogger()
+
+#%%
+display(torch.cuda.is_available())
+torch.cuda.device_count()
+
 # %%
 # マスターデータ読み込み
 # =================================================
@@ -774,15 +779,34 @@ print(f"評価用データサンプルラベル: {eval_sample[1]}")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 # %%
-# ResNet50の読み込み
-model = models.resnet50(pretrained=True)
+# ResNet18の読み込み
+# model = models.resnet18(pretrained=True)
 # model = models.googlenet(pretrained=True)
+model = models.mobilenet_v2(pretrained=True)
+# model = models.mobilenet_v1(pretrained=True)
+
 model = model.to(device)
+
+#%%
+
+# モデルの配置デバイスを確認
+print(f"モデルの配置デバイス: {next(model.parameters()).device}")
+
+# %% サンプルデータで推論
+# dummy_input = torch.randn(1, 3, 224, 224).to(device)
+# output = model(dummy_input)
+# print("推論完了")
+
+# GPU メモリ使用状況を確認
+if device == "cuda":
+    print(f"GPU メモリ使用量: {torch.cuda.memory_allocated(0) / 1024 ** 2:.2f} MB")
+    print(f"GPU メモリ全体: {torch.cuda.memory_reserved(0) / 1024 ** 2:.2f} MB")
+
 # %%
 # ハイパーパラメータの設定
 num_epoch = 25
 lr = 0.005
-batch_size = 1024
+batch_size = 2048 #1024
 train_ratio = 0.75
 weight_decay = 5e-4
 momentum = 0.9
@@ -807,10 +831,10 @@ def IoU(predicts, labels):
 
 # DataLoader
 trainloader = DataLoader(
-    train_dataset, batch_size=batch_size, shuffle=True, num_workers=2
+    train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
 )
 validloader = DataLoader(
-    valid_dataset, batch_size=batch_size, shuffle=False, num_workers=2
+    valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True
 )
 # %%
 model
@@ -835,6 +859,15 @@ for epoch in range(num_epoch):
     # 訓練モード
     model.train()
     for i, (imgs, labels) in enumerate(trainloader):
+        # モデルの配置デバイスを確認
+        print(f"モデルの配置デバイス: {next(model.parameters()).device}")
+        # 学習中に GPU メモリ使用量を表示
+        print("現在使用中のデバイス:", torch.cuda.get_device_name(0))
+        print("GPU メモリ使用量:")
+        print(f"  使用中: {torch.cuda.memory_allocated(0) / 1024 ** 2:.2f} MB")
+        print(f"  全体: {torch.cuda.memory_reserved(0) / 1024 ** 2:.2f} MB")
+
+
         imgs = imgs.float()
         imgs, labels = imgs.to(device), labels.to(device)
         # 勾配のリセット
@@ -880,6 +913,13 @@ for epoch in range(num_epoch):
     train_iou_list.append(avg_train_iou)
     valid_loss_list.append(avg_val_loss)
     valid_iou_list.append(avg_val_iou)
+    
+    # モデルの配置デバイスを確認
+    print(f"モデルの配置デバイス: {next(model.parameters()).device}")
+    # GPU メモリ使用状況を確認
+    if device == "cuda":
+        print(f"GPU メモリ使用量: {torch.cuda.memory_allocated(0) / 1024 ** 2:.2f} MB")
+        print(f"GPU メモリ全体: {torch.cuda.memory_reserved(0) / 1024 ** 2:.2f} MB")
 # %%
 # モデルの保存と読み込み
 model_path = EXP_MODEL + f"/{name}_resnet50.pth"
@@ -993,3 +1033,38 @@ for i, file in enumerate(sample_submit['file'].to_list()):
 file_name = sample_submit['file'].values
 submit_df = pd.DataFrame(data=[[f, pred] for f, pred in zip(file_name, prediction)])
 submit_df.to_csv(os.path.join(OUTPUT_EXP,  f"{file_name}_resnet50.tsv"), sep='\t', header=None, index=None)
+#%%
+
+# %%
+import torch
+import time
+
+# GPU 計算
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print("使用中のデバイス:", device)
+
+# テスト用の計算
+a = torch.randn(10000, 10000, device=device)
+b = torch.randn(10000, 10000, device=device)
+
+start = time.time()
+c = torch.matmul(a, b)  # 行列の積
+torch.cuda.synchronize()  # GPU 計算の同期
+print("計算時間 (GPU):", time.time() - start)
+
+# CPU 計算と比較
+a_cpu = torch.randn(10000, 10000)
+b_cpu = torch.randn(10000, 10000)
+
+start = time.time()
+c_cpu = torch.matmul(a_cpu, b_cpu)
+print("計算時間 (CPU):", time.time() - start)
+
+# %%
+
+# %%
+import torch
+print(f"CUDA が利用可能: {torch.cuda.is_available()}")
+print(f"cuDNN が利用可能: {torch.backends.cudnn.is_available()}")
+print(f"cuDNN バージョン: {torch.backends.cudnn.version()}")
+# %%
