@@ -22,6 +22,7 @@ from tqdm import tqdm_notebook as tqdm
 import warnings
 # import zipfile
 
+
 import numpy as np
 import pandas as pd
 from scipy import ndimage
@@ -38,12 +39,15 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms, models
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 # from torch.optim.lr_scheduler import CosineAnnealingLR
 
 
 from sklearn.model_selection import train_test_split  # StratifiedKFold , KFold
-# from sklearn.metrics import mean_squared_error,accuracy_score, roc_auc_score ,confusion_matrix
+from sklearn.metrics import (
+    confusion_matrix,
+)  # ,mean_squared_error,accuracy_score, roc_auc_score
 
 
 # %%
@@ -102,8 +106,9 @@ EXP_MODEL = Path(OUTPUT_EXP, "model")  # 学習済みモデル保存
 # ハイパーパラメータの設定
 ######################
 # ハイパーパラメータの設定
-num_epoch = 25
-lr = 0.001 # Adam  0.001　SGD 0.005
+num_workers = 2  # DataLoader CPU使用量
+epochs = 25
+lr = 0.001  # Adam  0.001　SGD 0.005
 batch_size = 1024
 train_ratio = 0.75
 weight_decay = 5e-4
@@ -203,7 +208,7 @@ label = train_master["flag"][idx]  # 画像ラベル
 
 img_path = f"../input/Satellite/train/{file}"  # 画像が格納されているパス
 
-image = io.imread(img_path)
+# image = io.imread(img_path)
 img = io.imread(img_path)  # 画像を開く
 
 
@@ -219,94 +224,115 @@ plt.show()
 # %%
 # 前処理
 """
-・正規化
-・水平フリップ（水平方向に画像反転を行う）
-・垂直フリップ（垂直方向に画像反転を行う）
-・回転（90度、180度、270度）
+1.クリッピング 
+2.正規化 
+3.Data Augmentation
+4.水平/垂直フリップ、回転など
+5.テンソル変換とリサイズ:画像の形状を変更し、テンソル化・リサイズを行います。
 """
 
 
-class Normalize:
+class ClipAndNormalize:
+    # クリッピングと正規化
+    def __init__(self, min_value=5000, max_value=30000):
+        self.min_value = min_value
+        self.max_value = max_value
+
     def __call__(self, image):
-        max = 30000
-        min = 5000  # 画像のピクセル値の分布を見て決める
-        image_normalized = np.clip(image, min, max)
-        image_normalized = (image_normalized - min) / (max - min)
-        return image_normalized
+        image = np.clip(image, self.min_value, self.max_value)
+        image = (image - self.min_value) / (self.max_value - self.min_value)
+        return image
 
 
-class HorizontalFlip:
+class Augmentation:
     def __call__(self, image):
-        p = random.random()
-        if p < 0.5:
-            image_transformed = np.fliplr(image).copy()
-            return image_transformed
-        else:
-            return image
+        # 水平フリップ
+        if np.random.rand() > 0.5:
+            image = np.flip(image, axis=2).copy()  # axis=2は幅方向
+        # 垂直フリップ
+        if np.random.rand() > 0.5:
+            image = np.flip(image, axis=1).copy()  # axis=1は高さ方向
+        # ランダム回転
+        k = np.random.choice([0, 1, 2, 3])  # 回転の回数
+        image = np.rot90(image, k=k, axes=(1, 2)).copy()  # (高さ, 幅)軸で回転
+        return image
 
 
-class VerticalFlip:
+class ToTensorAndResize:
+    # テンソル化、形状変換、リサイズ（EfficientNetV2-S仕様）
+    def __init__(self, resize_size=(224, 224)):
+        """
+        Args:
+            resize_size (tuple): リサイズ先のサイズ (height, width)。
+        """
+        self.resize_size = resize_size
+
     def __call__(self, image):
-        p = random.random()
-        if p < 0.5:
-            image_transformed = np.flipud(image).copy()
-            return image_transformed
-        else:
-            return image
+        """
+        Args:
+            image (np.ndarray): 入力画像 (C, H, W) または (H, W, C)。
 
+        Returns:
+            torch.Tensor: 処理後のテンソル (C, resize_height, resize_width)。
+        """
+        # NumPy → テンソル変換
+        if isinstance(image, np.ndarray):
+            image = torch.tensor(image, dtype=torch.float32)
+            if (
+                image.ndim == 3 and image.shape[-1] != image.shape[0]
+            ):  # (H, W, C) を (C, H, W) に変換
+                image = image.permute(2, 0, 1)
 
-class Rotate:
-    def __call__(self, image):
-        p = random.random()
-        if p < 0.25:
-            return image
-        elif p < 0.5:
-            image_transformed = ndimage.rotate(image, 90)
-            return image_transformed
-        elif p < 0.75:
-            image_transformed = ndimage.rotate(image, 180)
-            return image_transformed
-        else:
-            image_transformed = ndimage.rotate(image, 270)
-            return image_transformed
+        # リサイズ処理
+        image = F.interpolate(
+            image.unsqueeze(0),
+            size=self.resize_size,
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(0)
+
+        return image
 
 
 # %%
-# Data Augmentationの処理は学習時にのみに適用、transforms.Compose()と組み合わせる
+# Data Augmentationの処理は学習時にのみに適用
 # %%
 class ImageTransform:
     def __init__(self):
+        # transforms.Compose()はエラー回避のため不使用
         self.data_transform = {
-            "train": transforms.Compose(
-                [
-                    Normalize(),
-                    HorizontalFlip(),
-                    VerticalFlip(),
-                    Rotate(),
-                    transforms.ToTensor(),
-                ]
-            ),
-            "val": transforms.Compose(
-                [
-                    Normalize(),
-                    transforms.ToTensor(),
-                ]
-            ),
+            "train": [
+                ClipAndNormalize(),
+                Augmentation(),
+                ToTensorAndResize(),
+            ],
+            "val": [
+                ClipAndNormalize(),
+                ToTensorAndResize(),
+            ],
         }
 
     def __call__(self, image, phase="train"):
         return self.data_transform[phase](image)
 
 
-# 前処理を設計
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # サイズ変更
-    transforms.ToTensor(),          # テンソルに変換
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 正規化
-])
+# %%
+"""
+# 入力画像（ダミー）
+sample_image = np.random.randint(0, 65535, size=(32, 32, 7)).astype(np.float32)
 
-# 例：データセットの前処理で使用
-dataset = CustomDataset(transform=transform)
+# 変換器の準備
+transformer = ImageTransform()
+
+# 学習用前処理
+train_image = transformer(sample_image, phase="train")
+
+# バリデーション用前処理
+val_image = transformer(sample_image, phase="val")
+
+print(f"学習用画像形状: {train_image.shape}")  # torch.Tensor: (7, 224, 224)
+print(f"バリデーション用画像形状: {val_image.shape}")  # torch.Tensor: (7, 224, 224)
+"""
 
 
 # %%
@@ -317,24 +343,127 @@ dataset = CustomDataset(transform=transform)
 3. __getitem__:データの読み込み、前処理を行った上で、入力画像と正解ラベルのセットを返す。
 
 """
+# %%
+train_dir = INPUT_PATH / "train/"
+
+
+class SatelliteDataset(Dataset):
+    def __init__(self, dir, file_list, transform=None, phase="train"):
+        self.dir = dir
+        self.file_list = file_list
+        self.transform = transform
+        self.phase = phase
+        self.image_path = file_list["file_name"].to_list()
+        self.image_label = file_list["flag"].to_list()
+
+    def __len__(self):
+        return len(self.image_path)
+
+    def __getitem__(self, index):
+        # 画像をロード
+        img_path = self.image_path[idx]
+        image = io.imread(self.dir / img_path)
+        # 前処理の実装
+        if self.transform:
+            image = self.transform(img, self.phase)
+        label = self.image_label[idx]
+        return image, label
 
 
 # %%
-# データの順番は？
+# Datasetの作成
+# 学習用、検証用、評価用に分割(デフォルトは6:2:2とする)
 
 
+train_size = 0.6
+test_size = 0.5
 
+train_files, eval_files, train_labels, eval_labels = train_test_split(
+    train_master["file_name"],
+    train_master["flag"],
+    test_size=(1 - train_size) * test_size,
+    stratify=train_master["flag"],
+    random_state=0,
+)
+
+# valid_files, eval_files, valid_labels, eval_labels = train_test_split(valid_files, valid_labels, test_size=test_size, stratify=valid_labels, random_state=0)
+# ここで正例と負例の割合を1:1にするアンダーサンプリング
+
+train_files, valid_files, train_labels, valid_labels = train_test_split(
+    train_files,
+    train_labels,
+    test_size=test_size * train_size,
+    stratify=train_labels,
+    random_state=0,
+)
+
+
+print(f"学習用データサイズ: {len(train_files)}")
+print(f"検証用データサイズ: {len(valid_files)}")
+print(f"評価用データサイズ: {len(eval_files)}")
+print(f"学習用データ正例比率: {train_labels.mean()}")
+print(f"検証用データ正例比率: {valid_labels.mean()}")
+print(f"評価用データ正例比率: {eval_labels.mean()}")
+
+train_data = train_master.loc[train_master.index.isin(train_files.index)].reset_index(
+    drop=True
+)
+valid_data = train_master.loc[train_master.index.isin(valid_files.index)].reset_index(
+    drop=True
+)
+eval_data = train_master.loc[train_master.index.isin(eval_files.index)].reset_index(
+    drop=True
+)
+
+train_dataset = SatelliteDataset(
+    dir=train_dir, file_list=train_data, transform=ImageTransform(), phase="train"
+)
+
+valid_dataset = SatelliteDataset(
+    dir=train_dir, file_list=valid_data, transform=ImageTransform(), phase="val"
+)
+
+eval_dataset = SatelliteDataset(
+    dir=train_dir, file_list=eval_data, transform=ImageTransform(), phase="val"
+)
+
+# %%
+# 確認
+# それぞれのデータセットからランダムサンプリングを行い挙動を確認
+tr_idx = random.randint(0, len(train_dataset))
+val_idx = random.randint(0, len(valid_dataset))
+eval_idx = random.randint(0, len(eval_dataset))
+
+tr_sample = train_dataset[tr_idx]
+val_sample = valid_dataset[val_idx]
+eval_sample = eval_dataset[eval_idx]
+
+print(f"学習用データサンプル形状: {tr_sample[0].shape}")
+print(f"学習用データサンプルラベル: {tr_sample[1]}")
+print(f"検証用データサンプル形状: {val_sample[0].shape}")
+print(f"検証用データサンプルラベル: {val_sample[1]}")
+print(f"評価用データサンプル形状: {eval_sample[0].shape}")
+print(f"評価用データサンプルラベル: {eval_sample[1]}")
 
 # DataLoaderの作成
 # =================================================
 # DataLoader
-trainloader = DataLoader(
-    train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
+train_dataloader = DataLoader(
+    train_dataset,
+    batch_size=batch_size,
+    shuffle=True,
+    num_workers=num_workers,
+    pin_memory=True,
 )
-validloader = DataLoader(
-    valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True
+valid_dataloader = DataLoader(
+    valid_dataset,
+    batch_size=batch_size,
+    shuffle=False,
+    num_workers=num_workers,
+    pin_memory=True,
 )
 
+dataloaders_dict = {"train": train_dataloader, "val": valid_dataloader}
 # %%
 # モデルの定義
 # =================================================
@@ -365,7 +494,7 @@ model.features[0][0] = nn.Conv2d(
     padding=original_conv.padding,  # 元のパディングをそのまま使用
     bias=original_conv.bias is not None,  # 元のバイアスの設定をそのまま使用
 )
-# 7:チャンネル数　24：初期フィルタ数
+# 7:チャンネル数 24：初期フィルタ数
 # モデルの出力層の再定義
 model.classifier[1] = nn.Linear(in_features=1280, out_features=2, bias=True)
 
@@ -385,7 +514,8 @@ optimizer = optim.Adam(
 )
 criterion = nn.CrossEntropyLoss()
 
-#%%
+
+# %%
 # 評価指標IoUの設計(pytorchのtensorを想定)
 def IoU(predicts, labels):
     outs = predicts.max(1)[1]
@@ -398,36 +528,42 @@ def IoU(predicts, labels):
 
 
 # %%
-# モデルの学習
+# モデルの学習の関数
 # =================================================
-def train_model(net, epochs, dataloaders_dict, loss_fn, optimizer):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    net.to(device)
+
+def train_model(model, start_epoch, epochs, dataloaders_dict, criterion, optimizer):
+    #  検証時のベストスコアを更新したときに、そのエポック時点のモデルパラメータを保存するようにコーディングした。
     best_iou = 0.0
     loss_dict = {"train": [], "val": []}
     iou_dict = {"train": [], "val": []}
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, epochs):
         print(f"Epoch: {epoch+1} / {epochs}")
         print("--------------------------")
         for phase in ["train", "val"]:
             if phase == "train":
-                net.train()
+                model.train()
             else:
-                net.eval()
+                model.eval()
             epoch_loss = 0.0
             pred_list = []
             true_list = []
             for images, labels in tqdm(dataloaders_dict[phase]):
                 images = images.float().to(device)
                 labels = labels.to(device)
+
+                # 勾配のリセット
                 optimizer.zero_grad()
                 with torch.set_grad_enabled(phase == "train"):
-                    outputs = net(images)
-                    loss = loss_fn(outputs, labels)
+                    # 出力
+                    outputs = model(images)
+                    # 損失計算
+                    loss = criterion(outputs, labels)
                     _, preds = torch.max(outputs, 1)
                     if phase == "train":
+                        # 逆伝播
                         loss.backward()
                         optimizer.step()
+
                     epoch_loss += loss.item() * images.size(0)
                     preds = preds.to("cpu").numpy()
                     pred_list.extend(preds)
@@ -440,32 +576,34 @@ def train_model(net, epochs, dataloaders_dict, loss_fn, optimizer):
             loss_dict[phase].append(epoch_loss)
             iou_dict[phase].append(epoch_iou)
             print(f"{phase} Loss: {epoch_loss:.4f} IoU: {epoch_iou:.4f}")
-            if (phase == "val") and (epoch_iou > best_iou) and (epoch > 10):
+            if (phase == "val") and (epoch_iou > best_iou) or ((epoch + 1) == epochs):
                 best_iou = epoch_iou
-                param_name = f"./Epoch{epoch+1}_iou_{epoch_iou:.4f}.pth"
-                torch.save(net.state_dict(), param_name)
+                checkpoint_path = (
+                    EXP_MODEL + f"{name}_epoch{epoch+1}_iou_{epoch_iou:.4f}.pth"
+                )
+
+                torch.save(
+                    {
+                        "epoch": epoch + 1,
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                    },
+                    checkpoint_path,
+                )
+                print(f"Model checkpoint saved at {checkpoint_path}")
 
     return loss_dict, iou_dict
 
 
 # %%
-net = preresnet.preresnet(depth=20)
-net.conv1 = nn.Conv2d(
-    7, 16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False
-)
-net.fc = nn.Linear(in_features=64, out_features=2, bias=True)
-loss_fn = nn.CrossEntropyLoss()
-optimizer = optim.Adam(net.parameters())
-
-epochs = 150
+# モデルの学習
+start_epoch = 0
 loss_dict, iou_dict = train_model(
-    net=net,
+    model=model,
+    start_epoch = start_epoch,
     epochs=epochs,
     dataloaders_dict=dataloaders_dict,
-    loss_fn=loss_fn,
+    criterion=criterion,
     optimizer=optimizer,
 )
-
-
-
-
+# %%

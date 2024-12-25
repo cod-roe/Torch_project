@@ -202,6 +202,7 @@ class SatelliteDataset(data.Dataset):
 
     def __len__(self):
         return len(self.image_name_list)
+        
     def __getitem__(self, index):
         image_path = self.image_name_list[index]
         image = io.imread(f'./train/{image_path}')

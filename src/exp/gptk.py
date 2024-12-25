@@ -20,7 +20,18 @@ transform = transforms.Compose([
     transforms.ToTensor(),          # テンソルに変換
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # 正規化
 ])
+#もしくは
+class ImagePreprocessor:
+    def __init__(self, resize=(224, 224)):
+        self.resize = resize
 
+    def __call__(self, image):
+        """
+        画像をリサイズする処理
+        """
+        if not isinstance(image, Image.Image):  # PIL Imageであることを確認
+            raise ValueError("Input must be a PIL.Image.Image object")
+        return image.resize(self.resize)
 #%%
 # 2. Datasetの作成
 
@@ -110,3 +121,63 @@ for epoch in range(epochs):
         running_loss += loss.item()
 
     print(f"Epoch [{epoch+1}/{epochs}], Loss: {running_loss / len(dataloader)}")
+
+#%%
+import torch
+import torch.nn.functional as F
+import numpy as np
+
+class SatelliteImageTransform:
+    def __init__(self, clip_min=0, clip_max=1, resize_size=(224, 224), augmentations=None):
+        self.clip_min = clip_min
+        self.clip_max = clip_max
+        self.resize_size = resize_size
+        self.augmentations = augmentations
+
+    def __call__(self, image):
+        # 1. クリッピング
+        image = np.clip(image, self.clip_min, self.clip_max)
+        
+        # 2. 正規化
+        mean = np.mean(image, axis=(1, 2), keepdims=True)
+        std = np.std(image, axis=(1, 2), keepdims=True)
+        image = (image - mean) / (std + 1e-8)
+        
+        # 3. Data Augmentation
+        if self.augmentations:
+            for aug in self.augmentations:
+                image = aug(image)
+        
+        # 4. テンソル変換とリサイズ
+        image = torch.tensor(image, dtype=torch.float32).permute(0, 1, 2)  # (C, H, W)
+        image = F.interpolate(image.unsqueeze(0), size=self.resize_size, mode="bilinear", align_corners=False).squeeze(0)
+        
+        return image
+
+# Augmentation関数例
+def horizontal_flip(image):
+    if np.random.rand() > 0.5:
+        return np.flip(image, axis=2)  # 横方向を反転
+    return image
+
+def vertical_flip(image):
+    if np.random.rand() > 0.5:
+        return np.flip(image, axis=1)  # 縦方向を反転
+    return image
+
+def rotate_image(image):
+    k = np.random.choice([0, 1, 2, 3])  # 90度単位で回転
+    return np.rot90(image, k, axes=(1, 2))
+
+# 使用例
+transform = SatelliteImageTransform(
+    clip_min=0,
+    clip_max=1,
+    resize_size=(224, 224),
+    augmentations=[horizontal_flip, vertical_flip, rotate_image]
+)
+
+# データ例 (Numpy配列)
+sample_image = np.random.rand(7, 32, 32)  # ダミーデータ
+transformed_image = transform(sample_image)
+print(transformed_image.shape)  # torch.Size([7, 224, 224])
