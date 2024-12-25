@@ -38,6 +38,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms, models
 from torch.utils.data import DataLoader, Dataset
+# from torch.optim.lr_scheduler import CosineAnnealingLR
 
 
 from sklearn.model_selection import train_test_split  # StratifiedKFold , KFold
@@ -50,7 +51,7 @@ from sklearn.model_selection import train_test_split  # StratifiedKFold , KFold
 ######################
 # serial #
 ######################
-serial_number = 0  # スプレッドシートAの番号
+serial_number = 1  # スプレッドシートAの番号
 
 ######################
 # Data #
@@ -76,7 +77,7 @@ DRIVE = os.path.dirname(os.getcwd())  # このファイルの親(scr)
 INPUT_PATH = f"../input/{comp_name}/"  # 読み込みファイル場所
 OUTPUT = os.path.join(DRIVE, "output")
 OUTPUT_EXP = os.path.join(OUTPUT, name)  # 情報保存場所
-EXP_MODEL = os.path.join(OUTPUT_EXP, "model")  # 学習済みモデル保存
+EXP_MODEL = os.path.join(OUTPUT_EXP, "model/")  # 学習済みモデル保存
 
 ######################
 # Dataset #
@@ -161,7 +162,7 @@ logging.basicConfig(
 # ロガーの作成
 logger = logging.getLogger()
 
-#%%
+# %%
 display(torch.cuda.is_available())
 torch.cuda.device_count()
 
@@ -780,14 +781,16 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 # %%
 # ResNet18の読み込み
-# model = models.resnet18(pretrained=True)
+model = models.resnet18(pretrained=True)
+# model = models.resnet34(pretrained=True)
+
 # model = models.googlenet(pretrained=True)
-model = models.mobilenet_v2(pretrained=True)
+# model = models.mobilenet_v2(pretrained=True)
 # model = models.mobilenet_v1(pretrained=True)
 
 model = model.to(device)
 
-#%%
+# %%
 
 # モデルの配置デバイスを確認
 print(f"モデルの配置デバイス: {next(model.parameters()).device}")
@@ -806,15 +809,17 @@ if device == "cuda":
 # ハイパーパラメータの設定
 num_epoch = 25
 lr = 0.005
-batch_size = 2048 #1024
+batch_size = 1024
 train_ratio = 0.75
 weight_decay = 5e-4
 momentum = 0.9
+save_interval = 1  # 保存する間隔（エポック単位）
 
 # 最適化アルゴリズムと損失関数の設定
 optimizer = optim.SGD(
     model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay
 )
+# Adam  0.001
 criterion = nn.CrossEntropyLoss()
 
 
@@ -859,15 +864,6 @@ for epoch in range(num_epoch):
     # 訓練モード
     model.train()
     for i, (imgs, labels) in enumerate(trainloader):
-        # モデルの配置デバイスを確認
-        print(f"モデルの配置デバイス: {next(model.parameters()).device}")
-        # 学習中に GPU メモリ使用量を表示
-        print("現在使用中のデバイス:", torch.cuda.get_device_name(0))
-        print("GPU メモリ使用量:")
-        print(f"  使用中: {torch.cuda.memory_allocated(0) / 1024 ** 2:.2f} MB")
-        print(f"  全体: {torch.cuda.memory_reserved(0) / 1024 ** 2:.2f} MB")
-
-
         imgs = imgs.float()
         imgs, labels = imgs.to(device), labels.to(device)
         # 勾配のリセット
@@ -897,32 +893,50 @@ for epoch in range(num_epoch):
             valid_iou += IoU(outputs, labels)
     avg_val_loss = valid_loss / len(validloader.dataset)
     avg_val_iou = valid_iou / (i + 1)
+    # print(
+    #     "Epoch [{}/{}], Loss: {loss:.4f}, val_loss: {val_loss:.4f}, train_iou: {train_iou:.4f}, val_iou: {val_iou:.4f}".format(
+    #         epoch + 1,
+    #         num_epoch,
+    #         i + 1,
+    #         loss=avg_train_loss,
+    #         val_loss=avg_val_loss,
+    #         train_iou=avg_train_iou,
+    #         val_iou=avg_val_iou,
+    #     )
+    # )
     print(
-        "Epoch [{}/{}], Loss: {loss:.4f}, val_loss: {val_loss:.4f}, train_iou: {train_iou:.4f}, val_iou: {val_iou:.4f}".format(
-            epoch + 1,
-            num_epoch,
-            i + 1,
-            loss=avg_train_loss,
-            val_loss=avg_val_loss,
-            train_iou=avg_train_iou,
-            val_iou=avg_val_iou,
-        )
+        f"Epoch [{epoch + 1}/{num_epoch}], "
+        f"Loss: {avg_train_loss:.4f}, "
+        f"val_loss: {avg_val_loss:.4f}, "
+        f"train_iou: {avg_train_iou:.4f}, "
+        f"val_iou: {avg_val_iou:.4f}"
     )
     tmp_loss_list = valid_loss_list
     train_loss_list.append(avg_train_loss)
     train_iou_list.append(avg_train_iou)
     valid_loss_list.append(avg_val_loss)
     valid_iou_list.append(avg_val_iou)
-    
-    # モデルの配置デバイスを確認
-    print(f"モデルの配置デバイス: {next(model.parameters()).device}")
-    # GPU メモリ使用状況を確認
-    if device == "cuda":
-        print(f"GPU メモリ使用量: {torch.cuda.memory_allocated(0) / 1024 ** 2:.2f} MB")
-        print(f"GPU メモリ全体: {torch.cuda.memory_reserved(0) / 1024 ** 2:.2f} MB")
+
+    # 重みを保存
+    if (epoch + 1) % save_interval == 0 or (epoch + 1) == num_epoch:
+        checkpoint_path = EXP_MODEL + f"{name}_resnet18_checkpoint_epoch_{epoch+1}.pth"
+        torch.save(
+            {
+                "epoch": epoch + 1,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "train_loss": train_loss,
+                "val_loss": valid_loss,
+                "valid_iou": valid_iou,
+            },
+            checkpoint_path,
+        )
+        print(f"Model checkpoint saved at {checkpoint_path}")
+
+
 # %%
 # モデルの保存と読み込み
-model_path = EXP_MODEL + f"/{name}_resnet50.pth"
+model_path = EXP_MODEL + f"{name}_resnet18.pth"
 torch.save(model.state_dict(), model_path)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -993,47 +1007,52 @@ fp = len(eval_df.loc[(eval_df["prediction"] == 1) & (eval_df["label"] == 0)])
 fn = len(eval_df.loc[(eval_df["prediction"] == 0) & (eval_df["label"] == 1)])
 iou = tp / (tp + fp + fn)
 print(iou)
-#%%
+# %%
 # 提出形式を確認
-sample_submit.columns = ['file', 'prediction']
+sample_submit.columns = ["file", "prediction"]
 sample_submit
-#%%
+# %%
 # 1枚ずつ推論
 
 min, max = 3600, 23500
 model.eval()
-for i, file in enumerate(sample_submit['file'].to_list()):
+for i, file in enumerate(sample_submit["file"].to_list()):
     # 1.ndarrayで読み込み
-    img = io.imread(f'../input/Satellite/test/{file}')
+    img = io.imread(f"../input/Satellite/test/{file}")
     # 2. 正規化
     img = np.clip(img, min, max)
     img = (img - min) / (max - min)
     # 3. チャネル絞り込み
-    #img = img[:, 1:4, :, :]
+    # img = img[:, 1:4, :, :]
     img = img[:, :, 1:4]
     # 4. 前処理
-    img = np.transpose(img, (2,0,1))
+    img = np.transpose(img, (2, 0, 1))
     img = img[np.newaxis, :, :, :]
     img = torch.from_numpy(img.astype(np.float32)).clone()
     img = img.to(device)
     # 5. 推論
     output = model(img)
     # 6. ラベルにしてndarrayに変換
-    output = output.max(1)[1].to('cpu').detach().numpy().copy()
+    output = output.max(1)[1].to("cpu").detach().numpy().copy()
     # 7. 結合
     if i == 0:
         prediction = output
     else:
         prediction = np.concatenate([prediction, output], axis=0)
-    if (i+1) % 50000 == 0:
-        print(f'{i+1}枚目まで終了')
+    if (i + 1) % 50000 == 0:
+        print(f"{i+1}枚目まで終了")
 
-#%%
+# %%
 # 7-35:提出ファイルの作成
-file_name = sample_submit['file'].values
+file_name = sample_submit["file"].values
 submit_df = pd.DataFrame(data=[[f, pred] for f, pred in zip(file_name, prediction)])
-submit_df.to_csv(os.path.join(OUTPUT_EXP,  f"{file_name}_resnet50.tsv"), sep='\t', header=None, index=None)
-#%%
+submit_df.to_csv(
+    os.path.join(OUTPUT_EXP, f"{file_name}_resnet50.tsv"),
+    sep="\t",
+    header=None,
+    index=None,
+)
+# %%
 
 # %%
 import torch
@@ -1064,6 +1083,7 @@ print("計算時間 (CPU):", time.time() - start)
 
 # %%
 import torch
+
 print(f"CUDA が利用可能: {torch.cuda.is_available()}")
 print(f"cuDNN が利用可能: {torch.backends.cudnn.is_available()}")
 print(f"cuDNN バージョン: {torch.backends.cudnn.version()}")
