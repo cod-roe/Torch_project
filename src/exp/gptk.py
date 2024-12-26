@@ -34,7 +34,11 @@ class ImagePreprocessor:
         return image.resize(self.resize)
 #%%
 # 2. Datasetの作成
-
+"""
+1. __init__:初期化を行う。
+2. __len__:1エポックあたりに使用するデータ数を返す。
+3. __getitem__:データの読み込み、前処理を行った上で、入力画像と正解ラベルのセットを返す。
+"""
 class CustomDataset(Dataset):
     def __init__(self, image_paths, labels, transform=None):
         self.image_paths = image_paths
