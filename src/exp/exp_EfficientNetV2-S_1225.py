@@ -1,14 +1,19 @@
 # %% [markdown]
 ## モデルの変更！
 # =================================================
-# EfficientNetV2-S
+"""
+EfficientNetV2-S
+7チャンネル使用
+パイプライン自作
+"""
+
 # %%
 # ライブラリ読み込み
 # =================================================
 import datetime as dt
 
 # import gc
-import glob
+# import glob
 from IPython.display import display
 import logging
 
@@ -17,7 +22,10 @@ import os
 import random
 import sys
 from pathlib import Path
-import pickle
+
+# import pickle
+from requests import get  # colab
+import shutil  # colab
 from tqdm import tqdm_notebook as tqdm
 import warnings
 # import zipfile
@@ -34,6 +42,7 @@ import japanize_matplotlib
 import cv2
 from PIL import Image
 from skimage import io
+
 
 import torch
 import torch.nn as nn
@@ -75,7 +84,7 @@ if "google.colab" in sys.modules:  # colab環境
     print("google.colab")
     INPUT_PATH = Path("/content")  # 読み込みファイル場所
     # name_notebook = get('http://172.28.0.2:9000/api/sessions').json()[0]['name'] # ノートブック名を取得
-    name_notebook = "base01_Resnet18.ipynb"
+    name_notebook = "exp_EfficientNetV2-S_1225.ipynb"
     DRIVE = (
         f"/content/drive/MyDrive/Python/SIGNATE/{comp_name}"  # このファイルの親(scr)
     )
@@ -98,12 +107,7 @@ OUTPUT_EXP = os.path.join(OUTPUT, name)  # logなど情報保存場所
 EXP_MODEL = Path(OUTPUT_EXP, "model")  # 学習済みモデル保存
 
 
-######################
-# Dataset #
-######################
 
-######################
-# ハイパーパラメータの設定
 ######################
 # ハイパーパラメータの設定
 num_workers = 2  # DataLoader CPU使用量
@@ -206,7 +210,8 @@ idx = random.randint(0, train_size - 1)  # 0から学習データ数の範囲で
 file = train_master["file_name"][idx]  # 画像ファイル名
 label = train_master["flag"][idx]  # 画像ラベル
 
-img_path = f"../input/Satellite/train/{file}"  # 画像が格納されているパス
+# img_path = f"../input/Satellite/train/{file}"  # 画像が格納されているパス
+img_path = f"./train/{file}"  # 画像が格納されているパス
 
 # image = io.imread(img_path)
 img = io.imread(img_path)  # 画像を開く
@@ -222,13 +227,16 @@ for i in range(7):
     ax[i].set_axis_off()
 plt.show()
 # %%
+# パイプライン
+
+# %%
 # 前処理
 """
 1.クリッピング 
-2.正規化 
+2.正規化  外れ値があるためクリッピング→正規化
 3.Data Augmentation
-4.水平/垂直フリップ、回転など
-5.テンソル変換とリサイズ:画像の形状を変更し、テンソル化・リサイズを行います。
+    水平/垂直フリップ、回転など
+4.テンソル変換とリサイズ:画像の形状を変更し、テンソル化・リサイズを行います。
 """
 
 
@@ -246,17 +254,34 @@ class ClipAndNormalize:
 
 class Augmentation:
     def __call__(self, image):
+        # print(f"入力画像形状最初: {image.shape}")  # デバッグ
         # 水平フリップ
         if np.random.rand() > 0.5:
             image = np.flip(image, axis=2).copy()  # axis=2は幅方向
+            # print(f"入力画像形状水平フリップ後: {image.shape}")  # デバッグ
+
         # 垂直フリップ
         if np.random.rand() > 0.5:
             image = np.flip(image, axis=1).copy()  # axis=1は高さ方向
-        # ランダム回転
-        k = np.random.choice([0, 1, 2, 3])  # 回転の回数
-        image = np.rot90(image, k=k, axes=(1, 2)).copy()  # (高さ, 幅)軸で回転
-        return image
+            # print(f"入力画像形状垂直フリップ後: {image.shape}")  # デバッグ
+        
+        #  ランダム回転
+        p = random.random()  # 0.0 ~ 1.0 の乱数
+        if p < 0.25:
+            # 回転なし
+            return image
+        elif p < 0.5:
+            # 90度回転
+            image = ndimage.rotate(image, 90, axes=(1, 2), reshape=False).copy()
+        elif p < 0.75:
+            # 180度回転
+            image = ndimage.rotate(image, 180, axes=(1, 2), reshape=False).copy()
+        else:
+            # 270度回転
+            image = ndimage.rotate(image, 270, axes=(1, 2), reshape=False).copy()
 
+        # print(f"入力画像形状回転後: {image.shape}")  # デバッグ
+        return image
 
 class ToTensorAndResize:
     # テンソル化、形状変換、リサイズ（EfficientNetV2-S仕様）
@@ -280,7 +305,7 @@ class ToTensorAndResize:
             image = torch.tensor(image, dtype=torch.float32)
             if (
                 image.ndim == 3 and image.shape[-1] != image.shape[0]
-            ):  # (H, W, C) を (C, H, W) に変換
+            ):  # (H, W, C) ->  (C, H, W) 
                 image = image.permute(2, 0, 1)
 
         # リサイズ処理
@@ -295,11 +320,14 @@ class ToTensorAndResize:
 
 
 # %%
-# Data Augmentationの処理は学習時にのみに適用
-# %%
 class ImageTransform:
     def __init__(self):
-        # transforms.Compose()はエラー回避のため不使用
+        """
+        transforms.Composeは不使用
+        学習時と検証時で挙動を変える
+        >Data Augmentationの処理は学習時にのみに適用
+        """
+
         self.data_transform = {
             "train": [
                 ClipAndNormalize(),
@@ -313,7 +341,9 @@ class ImageTransform:
         }
 
     def __call__(self, image, phase="train"):
-        return self.data_transform[phase](image)
+        for transform in self.data_transform[phase]:
+            image = transform(image)
+        return image
 
 
 # %%
@@ -336,19 +366,31 @@ print(f"バリデーション用画像形状: {val_image.shape}")  # torch.Tenso
 
 
 # %%
-
-"""
-1. __init__:初期化を行う。
-2. __len__:1エポックあたりに使用するデータ数を返す。
-3. __getitem__:データの読み込み、前処理を行った上で、入力画像と正解ラベルのセットを返す。
-
-"""
-# %%
 train_dir = INPUT_PATH / "train/"
 
 
 class SatelliteDataset(Dataset):
+    """
+    1. __init__:初期化を行う。
+    2. __len__:1エポックあたりに使用するデータ数を返す。
+    3. __getitem__:データの読み込み、前処理を行った上で、入力画像と正解ラベルのセットを返す。
+
+    """
+
     def __init__(self, dir, file_list, transform=None, phase="train"):
+        '''
+        衛星画像の学習用データセット
+        Attributes
+        -------------------
+        dir : str
+            画像が保管されているパス
+        file_list : dataframe
+            画像のファイル名とフラグが格納されているデータフレーム
+        transform : torchvision.transforms.Compose
+            前処理パイプライン
+        phase : str
+            学習か検証かを選択
+        '''
         self.dir = dir
         self.file_list = file_list
         self.transform = transform
@@ -359,7 +401,7 @@ class SatelliteDataset(Dataset):
     def __len__(self):
         return len(self.image_path)
 
-    def __getitem__(self, index):
+    def __getitem__(self, idx):
         # 画像をロード
         img_path = self.image_path[idx]
         image = io.imread(self.dir / img_path)
@@ -445,6 +487,7 @@ print(f"検証用データサンプルラベル: {val_sample[1]}")
 print(f"評価用データサンプル形状: {eval_sample[0].shape}")
 print(f"評価用データサンプルラベル: {eval_sample[1]}")
 
+#%%
 # DataLoaderの作成
 # =================================================
 # DataLoader
@@ -494,7 +537,7 @@ model.features[0][0] = nn.Conv2d(
     padding=original_conv.padding,  # 元のパディングをそのまま使用
     bias=original_conv.bias is not None,  # 元のバイアスの設定をそのまま使用
 )
-# 7:チャンネル数 24：初期フィルタ数
+
 # モデルの出力層の再定義
 model.classifier[1] = nn.Linear(in_features=1280, out_features=2, bias=True)
 
@@ -505,12 +548,9 @@ print(device)
 model = model.to(device)
 
 # %%
-model
-
-# %%
 # 最適化アルゴリズムと損失関数の設定
 optimizer = optim.Adam(
-    model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay
+    model.parameters(), lr=lr, weight_decay=weight_decay
 )
 criterion = nn.CrossEntropyLoss()
 
@@ -526,18 +566,22 @@ def IoU(predicts, labels):
     fn_plus_fp = (outs != labels).sum().item()
     return tp / (tp + fn_plus_fp)
 
+# %%
+# モデルの確認
+model
 
 # %%
 # モデルの学習の関数
 # =================================================
 
-def train_model(model, start_epoch, epochs, dataloaders_dict, criterion, optimizer):
-    #  検証時のベストスコアを更新したときに、そのエポック時点のモデルパラメータを保存するようにコーディングした。
+
+def train_model(model, start_epoch, stop_epoch,epochs, dataloaders_dict, criterion, optimizer):
+    #  検証時のベストスコアを更新したときに、そのエポック時点のモデルパラメータを保存するようにコーディング。
     best_iou = 0.0
     loss_dict = {"train": [], "val": []}
     iou_dict = {"train": [], "val": []}
-    for epoch in range(start_epoch, epochs):
-        print(f"Epoch: {epoch+1} / {epochs}")
+    for epoch in range(start_epoch, stop_epoch):
+        print(f"Epoch: {epoch+1} / {stop_epoch}(全{epochs})")
         print("--------------------------")
         for phase in ["train", "val"]:
             if phase == "train":
@@ -598,9 +642,12 @@ def train_model(model, start_epoch, epochs, dataloaders_dict, criterion, optimiz
 # %%
 # モデルの学習
 start_epoch = 0
+stop_epoch = 5
+
 loss_dict, iou_dict = train_model(
     model=model,
-    start_epoch = start_epoch,
+    start_epoch=start_epoch,
+    stop_epoch=stop_epoch,
     epochs=epochs,
     dataloaders_dict=dataloaders_dict,
     criterion=criterion,
