@@ -107,7 +107,6 @@ OUTPUT_EXP = os.path.join(OUTPUT, name)  # logなど情報保存場所
 EXP_MODEL = Path(OUTPUT_EXP, "model")  # 学習済みモデル保存
 
 
-
 ######################
 # ハイパーパラメータの設定
 num_workers = 2  # DataLoader CPU使用量
@@ -264,7 +263,7 @@ class Augmentation:
         if np.random.rand() > 0.5:
             image = np.flip(image, axis=1).copy()  # axis=1は高さ方向
             # print(f"入力画像形状垂直フリップ後: {image.shape}")  # デバッグ
-        
+
         #  ランダム回転
         p = random.random()  # 0.0 ~ 1.0 の乱数
         if p < 0.25:
@@ -282,6 +281,7 @@ class Augmentation:
 
         # print(f"入力画像形状回転後: {image.shape}")  # デバッグ
         return image
+
 
 class ToTensorAndResize:
     # テンソル化、形状変換、リサイズ（EfficientNetV2-S仕様）
@@ -305,7 +305,7 @@ class ToTensorAndResize:
             image = torch.tensor(image, dtype=torch.float32)
             if (
                 image.ndim == 3 and image.shape[-1] != image.shape[0]
-            ):  # (H, W, C) ->  (C, H, W) 
+            ):  # (H, W, C) ->  (C, H, W)
                 image = image.permute(2, 0, 1)
 
         # リサイズ処理
@@ -378,7 +378,7 @@ class SatelliteDataset(Dataset):
     """
 
     def __init__(self, dir, file_list, transform=None, phase="train"):
-        '''
+        """
         衛星画像の学習用データセット
         Attributes
         -------------------
@@ -390,7 +390,7 @@ class SatelliteDataset(Dataset):
             前処理パイプライン
         phase : str
             学習か検証かを選択
-        '''
+        """
         self.dir = dir
         self.file_list = file_list
         self.transform = transform
@@ -487,7 +487,7 @@ print(f"検証用データサンプルラベル: {val_sample[1]}")
 print(f"評価用データサンプル形状: {eval_sample[0].shape}")
 print(f"評価用データサンプルラベル: {eval_sample[1]}")
 
-#%%
+# %%
 # DataLoaderの作成
 # =================================================
 # DataLoader
@@ -549,9 +549,7 @@ model = model.to(device)
 
 # %%
 # 最適化アルゴリズムと損失関数の設定
-optimizer = optim.Adam(
-    model.parameters(), lr=lr, weight_decay=weight_decay
-)
+optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 criterion = nn.CrossEntropyLoss()
 
 
@@ -566,6 +564,7 @@ def IoU(predicts, labels):
     fn_plus_fp = (outs != labels).sum().item()
     return tp / (tp + fn_plus_fp)
 
+
 # %%
 # モデルの確認
 model
@@ -575,7 +574,9 @@ model
 # =================================================
 
 
-def train_model(model, start_epoch, stop_epoch,epochs, dataloaders_dict, criterion, optimizer):
+def train_model(
+    model, start_epoch, stop_epoch, epochs, dataloaders_dict, criterion, optimizer
+):
     #  検証時のベストスコアを更新したときに、そのエポック時点のモデルパラメータを保存するようにコーディング。
     best_iou = 0.0
     loss_dict = {"train": [], "val": []}
@@ -623,7 +624,7 @@ def train_model(model, start_epoch, stop_epoch,epochs, dataloaders_dict, criteri
             if (phase == "val") and (epoch_iou > best_iou) or ((epoch + 1) == epochs):
                 best_iou = epoch_iou
                 checkpoint_path = (
-                    EXP_MODEL + f"{name}_epoch{epoch+1}_iou_{epoch_iou:.4f}.pth"
+                    EXP_MODEL / f"{name}_epoch{epoch+1}_iou_{epoch_iou:.4f}.pth"
                 )
 
                 torch.save(
@@ -637,6 +638,10 @@ def train_model(model, start_epoch, stop_epoch,epochs, dataloaders_dict, criteri
                 print(f"Model checkpoint saved at {checkpoint_path}")
 
     return loss_dict, iou_dict
+
+
+# %%
+
 
 
 # %%
@@ -654,3 +659,35 @@ loss_dict, iou_dict = train_model(
     optimizer=optimizer,
 )
 # %%
+
+# DataLoaderを使う
+
+evalloader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True,
+)
+
+
+eval_loss = 0.0
+pred_list = []
+true_list = []
+model.eval()
+with torch.no_grad():
+    for images, labels in tqdm(evalloader):
+        images = images.float().to(device)
+        labels = labels.to(device)
+
+        outputs = model(images)
+        # 損失計算
+        loss = criterion(outputs, labels)
+        _, preds = torch.max(outputs, 1)
+
+        eval_loss += loss.item() * images.size(0)
+        preds = preds.to("cpu").numpy()
+        pred_list.extend(preds)
+        labels = labels.to("cpu").numpy()
+        true_list.extend(labels)
+
+epoch_loss = eval_loss / len(evalloader.dataset)
+tn, fp, fn, tp = confusion_matrix(true_list, pred_list).flatten()
+eval_iou = tp / (tp + fp + fn)
+print(eval_iou)
+
