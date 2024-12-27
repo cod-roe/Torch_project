@@ -1,0 +1,211 @@
+
+Epoch: 1 / 5(全25)
+--------------------------
+100%
+ 648/648 [08:11<00:00,  2.10it/s]
+train Loss: 0.1075 IoU: 0.2885
+100%
+ 278/278 [02:08<00:00,  2.32it/s]
+val Loss: 0.0758 IoU: 0.5141
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch1_iou_0.5141.pth
+Epoch: 2 / 5(全25)
+--------------------------
+100%
+ 648/648 [08:01<00:00,  1.56it/s]
+train Loss: 0.1010 IoU: 0.3245
+100%
+ 278/278 [02:08<00:00,  2.30it/s]
+val Loss: 0.1085 IoU: 0.1813
+Epoch: 3 / 5(全25)
+--------------------------
+100%
+ 648/648 [08:00<00:00,  1.69it/s]
+train Loss: 0.1045 IoU: 0.3268
+100%
+ 278/278 [02:06<00:00,  2.04it/s]
+val Loss: 0.0971 IoU: 0.4800
+Epoch: 4 / 5(全25)
+--------------------------
+100%
+ 648/648 [08:00<00:00,  1.78it/s]
+train Loss: 0.0835 IoU: 0.4402
+100%
+ 278/278 [02:07<00:00,  1.77it/s]
+val Loss: 0.1694 IoU: 0.0298
+Epoch: 5 / 5(全25)
+--------------------------
+100%
+ 648/648 [08:03<00:00,  2.11it/s]
+train Loss: 0.0877 IoU: 0.4167
+100%
+ 278/278 [02:06<00:00,  1.86it/s]
+val Loss: 0.0896 IoU: 0.3066
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch5_iou_0.3066.pth
+--------------------------
+100%
+ 648/648 [08:01<00:00,  1.43it/s]
+train Loss: 0.0729 IoU: 0.4974
+100%
+ 278/278 [02:22<00:00,  1.82it/s]
+val Loss: 0.6275 IoU: 0.1825
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch6_iou_0.1825.pth
+Epoch: 7 / 25(全25)
+--------------------------
+100%
+ 648/648 [08:25<00:00,  1.80it/s]
+train Loss: 0.0677 IoU: 0.5245
+100%
+ 278/278 [02:14<00:00,  2.14it/s]
+val Loss: 0.0674 IoU: 0.4930
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch7_iou_0.4930.pth
+Epoch: 8 / 25(全25)
+--------------------------
+100%
+ 648/648 [08:04<00:00,  1.83it/s]
+train Loss: 0.0646 IoU: 0.5406
+100%
+ 278/278 [02:15<00:00,  1.80it/s]
+val Loss: 0.0635 IoU: 0.5086
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch8_iou_0.5086.pth
+Epoch: 9 / 25(全25)
+--------------------------
+100%
+ 648/648 [08:23<00:00,  1.21it/s]
+train Loss: 0.0630 IoU: 0.5532
+100%
+ 278/278 [02:24<00:00,  2.57it/s]
+val Loss: 0.0579 IoU: 0.5714
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch9_iou_0.5714.pth
+Epoch: 10 / 25(全25)
+--------------------------
+100%
+ 648/648 [08:13<00:00,  1.60it/s]
+train Loss: 0.0618 IoU: 0.5663
+100%
+ 278/278 [02:14<00:00,  2.42it/s]
+val Loss: 0.0756 IoU: 0.3686
+Epoch: 11 / 25(全25)
+--------------------------
+100%
+ 648/648 [08:39<00:00,  1.41it/s]
+train Loss: 0.0609 IoU: 0.5654
+100%
+ 278/278 [02:20<00:00,  2.37it/s]
+val Loss: 0.0521 IoU: 0.6241
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch11_iou_0.6241.pth
+Epoch: 12 / 25(全25)
+--------------------------
+100%
+ 648/648 [08:26<00:00,  1.84it/s]
+train Loss: 0.0600 IoU: 0.5743
+100%
+ 278/278 [02:13<00:00,  2.22it/s]
+val Loss: 0.0831 IoU: 0.5683
+Epoch: 13 / 25(全25)
+--------------------------
+100%
+ 648/648 [08:35<00:00,  1.87it/s]
+train Loss: 0.0594 IoU: 0.5791
+100%
+ 278/278 [02:13<00:00,  2.41it/s]
+val Loss: 0.0512 IoU: 0.6575
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch13_iou_0.6575.pth
+Epoch: 14 / 25(全25)
+--------------------------
+100%
+ 648/648 [08:17<00:00,  1.38it/s]
+train Loss: 0.0581 IoU: 0.5864
+100%
+ 278/278 [02:21<00:00,  2.41it/s]
+val Loss: 0.0469 IoU: 0.6806
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch14_iou_0.6806.pth
+Epoch: 15 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:57<00:00,  1.73it/s]
+train Loss: 0.0581 IoU: 0.5862
+100%
+ 278/278 [02:14<00:00,  2.15it/s]
+val Loss: 0.0801 IoU: 0.4126
+Epoch: 16 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:54<00:00,  1.76it/s]
+train Loss: 0.0570 IoU: 0.5904
+100%
+ 278/278 [02:15<00:00,  1.81it/s]
+val Loss: 0.0767 IoU: 0.4530
+Epoch: 17 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:50<00:00,  1.71it/s]
+train Loss: 0.0570 IoU: 0.5931
+100%
+ 278/278 [02:15<00:00,  1.78it/s]
+val Loss: 0.0774 IoU: 0.5488
+Epoch: 18 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:47<00:00,  1.86it/s]
+train Loss: 0.0561 IoU: 0.6037
+100%
+ 278/278 [02:12<00:00,  2.22it/s]
+val Loss: 0.1172 IoU: 0.2021
+Epoch: 19 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:54<00:00,  2.00it/s]
+train Loss: 0.0564 IoU: 0.5970
+100%
+ 278/278 [02:13<00:00,  2.65it/s]
+val Loss: 0.0594 IoU: 0.5566
+Epoch: 20 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:54<00:00,  1.44it/s]
+train Loss: 0.0560 IoU: 0.6048
+100%
+ 278/278 [02:11<00:00,  2.20it/s]
+val Loss: 0.0437 IoU: 0.6888
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch20_iou_0.6888.pth
+Epoch: 21 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:56<00:00,  1.55it/s]
+train Loss: 0.0546 IoU: 0.6151
+100%
+ 278/278 [02:14<00:00,  2.06it/s]
+val Loss: 0.1039 IoU: 0.4573
+Epoch: 22 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:47<00:00,  1.74it/s]
+train Loss: 0.0555 IoU: 0.6084
+100%
+ 278/278 [02:13<00:00,  2.33it/s]
+val Loss: 0.0972 IoU: 0.3653
+Epoch: 23 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:47<00:00,  1.88it/s]
+train Loss: 0.0543 IoU: 0.6108
+100%
+ 278/278 [02:13<00:00,  3.05it/s]
+val Loss: 0.0482 IoU: 0.6607
+Epoch: 24 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:48<00:00,  1.64it/s]
+train Loss: 0.0544 IoU: 0.6144
+100%
+ 278/278 [02:09<00:00,  2.03it/s]
+val Loss: 0.0852 IoU: 0.5292
+Epoch: 25 / 25(全25)
+--------------------------
+100%
+ 648/648 [07:46<00:00,  1.63it/s]
+train Loss: 0.0538 IoU: 0.6168
+100%
+ 278/278 [02:12<00:00,  1.69it/s]
+val Loss: 0.0470 IoU: 0.6428
+Model checkpoint saved at /content/drive/MyDrive/Python/SIGNATE/Satellite/output/exp_EfficientNetV2-S_1225/model/exp_EfficientNetV2-S_1225_epoch25_iou_0.6428.pth

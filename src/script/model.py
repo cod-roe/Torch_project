@@ -153,9 +153,6 @@ def create_model_efiv2s(
     # EfficientNetV2-S
     # =================================================
 
-    # モデルの定義
-    # =================================================
-
     # import timm #modelsで読み込めないときはこっち
     # EfficientNetV2-Sをロード
     # model = timm.create_model('tf_efficientnetv2_s', pretrained=True)
@@ -191,4 +188,4 @@ def create_model_efiv2s(
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss()
     
-    return model
+    return model,optimizer ,criterion

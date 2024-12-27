@@ -148,25 +148,6 @@ def train_model(
             loss_dict[phase].append(epoch_loss)
             iou_dict[phase].append(epoch_iou)
             print(f"{phase} Loss: {epoch_loss:.4f} IoU: {epoch_iou:.4f}")
-
-            # stdout と stderr を一時的にリダイレクト
-            stdout_logger = logging.getLogger("STDOUT")
-            stderr_logger = logging.getLogger("STDERR")
-
-            sys_stdout_backup = sys.stdout
-            sys_stderr_backup = sys.stderr
-
-            sys.stdout = StreamToLogger(stdout_logger, logging.INFO)
-            sys.stderr = StreamToLogger(stderr_logger, logging.ERROR)
-            print("-" * 20, "result", "-" * 20)
-            print(dt_now().strftime("%Y年%m月%d日 %H:%M:%S"))
-
-            print(f"{phase} Loss: {epoch_loss:.4f} IoU: {epoch_iou:.4f}")
-
-            # リダイレクトを解除
-            sys.stdout = sys_stdout_backup
-            sys.stderr = sys_stderr_backup
-
             if (phase == "val") and (
                 (epoch_iou > best_iou)
                 or ((epoch + 1) == epochs)
@@ -188,12 +169,4 @@ def train_model(
                 )
                 print(f"Model checkpoint saved at {checkpoint_path}")
 
-            # early stopping: 5回評価指標が改善しなかったらストップ
-            if epoch >= 5:
-                max_iou = np.array(valid_iou_list[-5:]).max()
-                before_5 = valid_iou_list[-5]
-                if max_iou == before_5:
-                    return model, train_loss_list, train_iou_list, valid_iou_list
-                    break
-
-    return model, loss_dict, iou_dict
+    return loss_dict, iou_dict
