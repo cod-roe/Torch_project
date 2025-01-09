@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torchvision import models
 
+from torchvision.models import EfficientNet_V2_S_Weights, efficientnet_v2_s
+
 # %%
 # =================================================
 # EfficientNetV2-S
@@ -199,3 +201,43 @@ print(input, target)
 loss = criterion(input, target)
 print(loss)
 # %%
+#========================================
+#2025/01/09版
+# モデルの定義
+# カスタム画像分類
+class EfficientNetS(nn.Module):
+    def __init__(self, num_class, final_in_features=1280, input_channels=6):#
+        super(EfficientNetS, self).__init__()
+        # EfficientNetV2-Sの事前学習済みモデルをロード
+        self.model = efficientnet_v2_s(pretrained=True)
+
+        # 最初の畳み込み層を取得し、6層にカスタマイズ
+        original_conv = self.model.features[0][0]  # 最初のConv2d
+        self.model.features[0][0] = nn.Conv2d(
+            in_channels=input_channels,  # 入力チャンネル数を7に変更
+            out_channels=original_conv.out_channels,
+            kernel_size=original_conv.kernel_size,
+            stride=original_conv.stride,
+            padding=original_conv.padding,
+            bias=original_conv.bias is not None,
+        )
+
+        # エンコーダ部分
+        self.encoder = nn.Sequential(
+            self.model.features,
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(1),
+        )
+
+        # 分類層
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.2),
+            nn.Linear(final_in_features, num_class),
+        )
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.classifier(x)
+        return x
+
+
