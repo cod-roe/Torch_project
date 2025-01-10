@@ -68,7 +68,7 @@ from sklearn.metrics import (
 # ==================================
 class AdjustBrightness:
     # 弱め0.9 ～ 1.1、強め0.7 ～ 1.3で値を調整
-    def __init__(self, brightness_factor_range=(0.8, 1.2)):
+    def __init__(self, brightness_factor_range=(0.9, 1.1)):
         self.brightness_factor_range = brightness_factor_range
 
     def __call__(self, img):
@@ -79,7 +79,7 @@ class AdjustBrightness:
 # コントラスト変更　地形や物体の種類、光の反射
 class AdjustContrast:
     # 弱め0.9 ～ 1.1、強め0.7 ～ 1.3で値を調整
-    def __init__(self, contrast_factor_range=(0.8, 1.2)):
+    def __init__(self, contrast_factor_range=(0.9, 1.1)):
         self.contrast_factor_range = contrast_factor_range
 
     def __call__(self, img):
@@ -87,26 +87,34 @@ class AdjustContrast:
         return v2.functional.adjust_contrast(img, factor)
 
 
-# %%
-"""v2 7チャンネル使用可能 2025/01/10"""
 
+#%%
+#明るさ変更　明るさの変動: 天候、季節、時間帯 7チャンネル仕様
 
-# ランダムに[0, 90, 180, 270]のどれかの角度で回転
-class RandomSpecificRotation:
-    def __init__(self, angles=[0, 90, 180, 270]):
-        self.angles = angles
+class AdjustBrightness2:
+    def __init__(self, brightness_factor_range=(0.9, 1.1)):
+        self.brightness_factor_range = brightness_factor_range
 
     def __call__(self, img):
-        if not isinstance(img, torch.Tensor):
-            raise ValueError("Input image must be a PyTorch Tensor.")
-        angle = random.choice(self.angles)  # ランダムに角度を選択
-        return v2.functional.rotate(img, angle)  # テンソルに回転を適用
+        # ランダムな明るさ係数を取得
+        factor = random.uniform(*self.brightness_factor_range)
+        # 明るさ調整: 各チャンネルに一様にスケールを掛ける
+        return img * factor
 
+class AdjustContrast2:
+    def __init__(self, contrast_factor_range=(0.9, 1.1)):
+        self.contrast_factor_range = contrast_factor_range
+
+    def __call__(self, img):
+        # ランダムなコントラスト係数を取得
+        factor = random.uniform(*self.contrast_factor_range)
+        # 空間次元で平均を計算 (チャネルごとに異なる平均値)
+        mean = img.mean(dim=(-2, -1), keepdim=True)
+        # コントラスト調整
+        return (img - mean) * factor + mean
 
 # %%
-"""v2 RGBのみ明るさ、コントラスト変更7チャンネル使用可能 2025/01/10"""
-
-
+"""v2 RGBのみ明るさ、コントラスト変更7チャンネル使用可能(3チャンネルのみ分割して処理) 2025/01/10"""
 # カスタムColorJitterクラス
 class CustomColorJitter:
     def __init__(
@@ -127,9 +135,21 @@ class CustomColorJitter:
 
 
 # %%
+"""v2 回転 7チャンネル使用可能 2025/01/10"""
+# ランダムに[0, 90, 180, 270]のどれかの角度で回転
+class RandomSpecificRotation:
+    def __init__(self, angles=[0, 90, 180, 270]):
+        self.angles = angles
+
+    def __call__(self, img):
+        if not isinstance(img, torch.Tensor):
+            raise ValueError("Input image must be a PyTorch Tensor.")
+        angle = random.choice(self.angles)  # ランダムに角度を選択
+        return v2.functional.rotate(img, angle)  # テンソルに回転を適用
+
+
+# %%
 """v2 衛星画像クリップ&正規化7チャンネル使用可能 2025/01/10"""
-
-
 # カスタムクリッピング + 正規化
 class ClampNormalize(torch.nn.Module):
     def __init__(self, min_val, max_val):
