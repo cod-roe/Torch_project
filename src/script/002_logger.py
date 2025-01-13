@@ -151,6 +151,7 @@ class StreamToLogger:
         pass
 
 
+"""vscode"""
 # utils
 # # ログファイルの設定
 logging.basicConfig(
@@ -159,7 +160,8 @@ logging.basicConfig(
 # # ロガーの作成
 logger = logging.getLogger()
 
-
+#%%
+# ログの保存
 # stdout と stderr を一時的にリダイレクト
 stdout_logger = logging.getLogger("STDOUT")
 stderr_logger = logging.getLogger("STDERR")
@@ -201,8 +203,184 @@ sys.stdout = sys_stdout_backup
 sys.stderr = sys_stderr_backup
 
 #%%
-# お試し1
-logger.info("-" * 10 + " result " + "-" * 10)
-logger.info(f"MCMAE:{df_metrics['mae'].mean():.4f}")
+"""Colab（出力遅い場合mount解除したら同期される）"""
+#==========================================
+
+OUTPUT_EXP = os.path.join(OUTPUT, name)  # logなど情報保存場所
+
+log_file_path =  f"{OUTPUT_EXP}/log_{name}.txt"
+
+
+# ロガー作成
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# 既存のハンドラを削除
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
+# ファイルハンドラを追加  ログをファイルに保存するためのハンドラを設定
+file_handler = logging.FileHandler(log_file_path, mode='a')#"a"追記モード
+file_handler.setLevel(logging.INFO)
+
+# コンソールハンドラの設定  コンソールにログを出力するためのハンドラを設定
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+
+
+# フォーマッターを設定 フォーマットを設定
+formatter = logging.Formatter("%(message)s")
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+
+# ロガーの作成
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+
+
+# ログを出力して確認
+logger.info("This is a test log message.")
+
 
 #%%
+# 出力方法1
+logger.info("-" * 10 +  "test1 " + "-" * 10)
+logger.info("-" * 10 + " test2 " + "-" * 10)
+logger.info(dt_now().strftime("%Y年%m月%d日 %H:%M:%S"))
+#%%
+#出力方法2
+
+# stdout と stderr を一時的にリダイレクト
+stdout_logger = logging.getLogger("STDOUT")
+stderr_logger = logging.getLogger("STDERR")
+
+sys_stdout_backup = sys.stdout
+sys_stderr_backup = sys.stderr
+
+sys.stdout = StreamToLogger(stdout_logger, logging.INFO)
+sys.stderr = StreamToLogger(stderr_logger, logging.ERROR)
+
+
+"""
+ここに以下のようにprintで出力
+"""
+# 終了時刻
+print(dt_now().strftime("%Y年%m月%d日 %H:%M:%S"))
+print("-" * 10 +  "test7 " + "-" * 10)
+
+# リダイレクトを解除
+sys.stdout = sys_stdout_backup
+sys.stderr = sys_stderr_backup
+
+
+
+#%%
+"""テンポラリ領域にメモを作成する方法"""
+#=======================================================
+# ログファイルの保存場所を変更
+OUTPUT_EXP = "/content/logs"
+os.makedirs(OUTPUT_EXP, exist_ok=True)
+
+logging.basicConfig(
+    filename=f"{OUTPUT_EXP}/log_{name}.txt", level=logging.INFO, format="%(message)s"
+)
+
+#%%
+# OUTPUT_EXP = os.path.join(OUTPUT, name)  # logなど情報保存場所
+
+OUTPUT_EXP = "/content/logs"
+log_file_path = f"{OUTPUT_EXP}/log_{name}.txt"
+
+
+# ロガー作成
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# 既存のハンドラを削除
+for handler in logger.handlers[:]:
+    logger.removeHandler(handler)
+
+# ファイルハンドラを追加  ログをファイルに保存するためのハンドラを設定
+file_handler = logging.FileHandler(log_file_path, mode='a')#"a"追記モード
+file_handler.setLevel(logging.INFO)
+
+# コンソールハンドラの設定  コンソールにログを出力するためのハンドラを設定
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+
+
+# フォーマッターを設定 フォーマットを設定
+formatter = logging.Formatter("%(message)s")
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+
+# ロガーの作成
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+
+# ログを出力して確認
+logger.info("This is a test log message.")
+
+#%%
+# ログ作成
+logger.info("-" * 10 +  "test1 " + "-" * 10)
+logger.info("-" * 10 + " test2 " + "-" * 10)
+logger.info(dt_now().strftime("%Y年%m月%d日 %H:%M:%S"))
+
+#%%
+# ファイルをドライブに保存
+
+# コピー元とコピー先のパスを指定
+source_path = "/content/logs/log_{name}.txt""
+destination_path = f"{OUTPUT_EXP}/log_{name}.txt"
+OUTPUT_EXP = os.path.join(OUTPUT, name)  # logなど情報保存場所
+
+# 保存先ディレクトリがない場合は作成
+os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+
+# ファイルをコピー
+shutil.copy(source_path, destination_path)
+
+
+#%%
+"""clabだと時間がかかる？"""
+# # stdout と stderr を一時的にリダイレクト
+# stdout_logger = logging.getLogger("STDOUT")
+# stderr_logger = logging.getLogger("STDERR")
+
+# sys_stdout_backup = sys.stdout
+# sys_stderr_backup = sys.stderr
+
+# sys.stdout = StreamToLogger(stdout_logger, logging.INFO)
+# sys.stderr = StreamToLogger(stderr_logger, logging.ERROR)
+
+
+
+# # 終了時刻
+# print(dt_now().strftime("%Y年%m月%d日 %H:%M:%S"))
+# print("-" * 10 +  "test7 " + "-" * 10)
+
+# # リダイレクトを解除
+# sys.stdout = sys_stdout_backup
+# sys.stderr = sys_stderr_backup
+
+#%%
+#その他
+#ファイルが作れないときはこれで作成してみる
+# 明示的にテキストファイルを作成してみる
+log_file_path = f"{OUTPUT_EXP}/log_{name}.txt"
+
+try:
+    with open(log_file_path, "w") as test_file:
+        test_file.write("This is a test log.")
+    print("Log file created successfully:", log_file_path)
+except Exception as e:
+    print("Error creating log file:", e)
