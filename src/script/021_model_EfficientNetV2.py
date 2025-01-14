@@ -7,6 +7,9 @@ from torchvision import models
 # from torchvision.models import EfficientNet_V2_S_Weights
 from torchvision.models import efficientnet_v2_s, efficientnet_v2_m, efficientnet_v2_l
 
+
+from dataclasses import dataclass
+
 # %%
 # =================================================
 # EfficientNetV2
@@ -57,7 +60,7 @@ EfficientNetV2-L	480 * 480
 """
 
 # カスタム画像分類
-class EfficientNetS(nn.Module):
+class EfficientNetSstandard(nn.Module):
     def __init__(self, num_class, final_in_features=1280, input_channels=6):#
         super(EfficientNetS, self).__init__()
         # EfficientNetV2-Sの事前学習済みモデルをロード
@@ -96,16 +99,44 @@ class EfficientNetS(nn.Module):
 
 # モデルの定義
 # カスタム画像分類
-class EfficientNetS_bs(nn.Module):
-    def __init__(self, num_class, final_in_features=1280, input_channels=6):#
+"""衛星画像分析で使っているのはこっち
+2015/01/14 dataclass付け加える
+dataclassを使用することで名前やパラメータの変更するだけで、モデルのクラスはそのまま使える
+"""
+@dataclass
+class ModelConfig:
+    model_name: str
+    model_fn: callable #efficientnet_v2_s 
+    final_in_features: int #=1280 1408 1280
+    num_class: int = 2
+    input_channels: int = 6
+
+"""
+修正中
+efficientnet_v2_s_config = ModelConfig(
+    model_name="EfficientNetV2-S",
+    model_fn=efficientnet_v2_s,
+    final_in_features=1280,
+    num_classes=2,
+    input_channels=6,  # カスタム入力チャネル数
+)
+# ConvNeXt-Baseのモデル
+efficientnet_v2_s_model = EfficientNetV2(efficientnet_v2_s_config)
+"""
+
+
+
+
+class EfficientNetV2(nn.Module):
+    def __init__(self, config: ModelConfig):#
         super().__init__()
         # EfficientNetV2-Sの事前学習済みモデルをロード
-        base_model = efficientnet_v2_s(pretrained=True)
+        base_model = config.model_fn(pretrained=True)
 
         # 最初の畳み込み層を取得し、6層にカスタマイズ
         original_conv = base_model.features[0][0]  # 最初のConv2d
         base_model.features[0][0] = nn.Conv2d(
-            in_channels=input_channels,  # 入力チャンネル数を6に変更
+            in_channels=config.input_channels,  # 入力チャンネル数を6に変更
             out_channels=original_conv.out_channels,
             kernel_size=original_conv.kernel_size,
             stride=original_conv.stride,
@@ -123,7 +154,7 @@ class EfficientNetS_bs(nn.Module):
         # 分類層
         self.classifier = nn.Sequential(
             nn.Dropout(0.2),
-            nn.Linear(final_in_features, num_class),
+            nn.Linear(config.inal_in_features, config.num_class),
         )
 
     def forward(self, x):
