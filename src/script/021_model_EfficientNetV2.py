@@ -26,10 +26,7 @@ weight_decay = 5e-4
 # momentum = 0.9
 
 
-
-
-
-#%%
+# %%
 # クラス重みを設定
 # pos_weight = torch.tensor([23.67])  # 正例を負例の23.67倍重視
 # criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
@@ -41,7 +38,7 @@ weight_decay = 5e-4
 
 # %%
 # モデルの定義
-#========================================
+# ========================================
 """EfficientNetV2-S 2025/01/09版"""
 
 """final_in_features
@@ -59,9 +56,10 @@ EfficientNetV2-L	480 * 480
 
 """
 
+
 # カスタム画像分類
-class EfficientNetSstandard(nn.Module):
-    def __init__(self, num_class, final_in_features=1280, input_channels=6):#
+class EfficientNetS(nn.Module):
+    def __init__(self, num_class, final_in_features=1280, input_channels=6):  #
         super(EfficientNetS, self).__init__()
         # EfficientNetV2-Sの事前学習済みモデルをロード
         self.model = efficientnet_v2_s(pretrained=True)
@@ -80,7 +78,7 @@ class EfficientNetSstandard(nn.Module):
         # エンコーダ部分
         self.encoder = nn.Sequential(
             self.model.features,
-            nn.AdaptiveAvgPool2d((1, 1)),#サイズ変更に対応
+            nn.AdaptiveAvgPool2d((1, 1)),  # サイズ変更に対応
             nn.Flatten(1),
         )
 
@@ -96,39 +94,25 @@ class EfficientNetSstandard(nn.Module):
         return x
 
 
-
 # モデルの定義
 # カスタム画像分類
 """衛星画像分析で使っているのはこっち
 2015/01/14 dataclass付け加える
 dataclassを使用することで名前やパラメータの変更するだけで、モデルのクラスはそのまま使える
 """
+
+
 @dataclass
 class ModelConfig:
     model_name: str
-    model_fn: callable #efficientnet_v2_s 
-    final_in_features: int #=1280 1408 1280
+    model_fn: callable  # efficientnet_v2_s
+    final_in_features: int  # =1280 1408 1280
     num_class: int = 2
     input_channels: int = 6
 
-"""
-修正中
-efficientnet_v2_s_config = ModelConfig(
-    model_name="EfficientNetV2-S",
-    model_fn=efficientnet_v2_s,
-    final_in_features=1280,
-    num_classes=2,
-    input_channels=6,  # カスタム入力チャネル数
-)
-# ConvNeXt-Baseのモデル
-efficientnet_v2_s_model = EfficientNetV2(efficientnet_v2_s_config)
-"""
-
-
-
 
 class EfficientNetV2(nn.Module):
-    def __init__(self, config: ModelConfig):#
+    def __init__(self, config: ModelConfig):  #
         super().__init__()
         # EfficientNetV2-Sの事前学習済みモデルをロード
         base_model = config.model_fn(pretrained=True)
@@ -147,14 +131,14 @@ class EfficientNetV2(nn.Module):
         # エンコーダ部分
         self.encoder = nn.Sequential(
             base_model.features,
-            nn.AdaptiveAvgPool2d((1, 1)), # サイズ調整
+            nn.AdaptiveAvgPool2d((1, 1)),  # サイズ調整
             nn.Flatten(1),
         )
 
         # 分類層
         self.classifier = nn.Sequential(
             nn.Dropout(0.2),
-            nn.Linear(config.inal_in_features, config.num_class),
+            nn.Linear(config.final_in_features, config.num_class),
         )
 
     def forward(self, x):
@@ -163,11 +147,51 @@ class EfficientNetV2(nn.Module):
         return x
 
 
+
+#%%
+# 使用例
+#dataclass設定
+efficientnet_v2_s_config = ModelConfig(
+    model_name="EfficientNetV2-S",
+    model_fn=efficientnet_v2_s,
+    final_in_features=1280,
+    num_class=2, #出力の数
+    input_channels=6,  # カスタム入力チャネル数
+)
+# EfficientNetV2-Sのモデル
+model = EfficientNetV2(efficientnet_v2_s_config)
+
+
+efficientnet_v2_m_config = ModelConfig(
+    model_name="EfficientNetV2-M",
+    model_fn=efficientnet_v2_m,
+    final_in_features=1408,
+    num_class=2, #出力の数
+    input_channels=6,  # カスタム入力チャネル数
+)
+# EfficientNetV2-Mのモデル
+model = EfficientNetV2(efficientnet_v2_m_config)
+
+
+efficientnet_v2_l_config = ModelConfig(
+    model_name="EfficientNetV2-L",
+    model_fn=efficientnet_v2_l,
+    final_in_features=1280,
+    num_class=2, #出力の数
+    input_channels=6,  # カスタム入力チャネル数
+)
+# EfficientNetV2-Lのモデル
+model = EfficientNetV2(efficientnet_v2_l_config)
+
+
+
+
 # モデルの定義 defバージョン
 # =================================================
 
 # タスクに合わせてレイヤを調整
 # =================================================
+
 
 def create_model_efiv2s(
     lr=lr,
@@ -211,10 +235,8 @@ def create_model_efiv2s(
     # 最適化アルゴリズムと損失関数の設定
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     criterion = nn.CrossEntropyLoss()
-    
-    return model,optimizer ,criterion
 
-
+    return model, optimizer, criterion
 
 
 # モデルの定義 関数なしで普通に定義
