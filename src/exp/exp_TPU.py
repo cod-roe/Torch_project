@@ -313,10 +313,25 @@ stop_epoch = 15
 
 # TPUの8コアを使ってプロセスを立ち上げる
 FLAGS = {
-    'num_epochs': 30,  # 全体のエポック数
+    'epochs': 30,  # 全体のエポック数
     'start_epoch': 10,  # 開始エポック
     'stop_epoch': 20   # 終了エポック
 }
+
+
+FLAGS = {
+    'epochs': 30,
+    'start_epoch': 10,
+    'stop_epoch': 20,
+    'dataloaders_dict': dataloaders_dict,
+    'optimizer': optimizer,
+    'freeze_backbone': False,
+}
+
+
+
+model, start_epoch, stop_epoch,epochs, dataloaders_dict, criterion, optimizer, freeze_backbone=False
+
 xmp.spawn(train_model, args=(FLAGS,), nprocs=8)
 
 
