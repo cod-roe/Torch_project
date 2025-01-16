@@ -45,14 +45,14 @@ weight_decay = 5e-4
 EfficientNetV2-S
 1280
 EfficientNetV2-M
-1408
+1280
 EfficientNetV2-L
 1280
 
 input_size
-EfficientNetV2-S	300 * 300
-EfficientNetV2-M	384 * 384
-EfficientNetV2-L	480 * 480
+EfficientNetV2-S	128~300 * 300
+EfficientNetV2-M	128~380 * 384
+EfficientNetV2-L	128~380 * 480
 
 """
 
@@ -165,7 +165,7 @@ model = EfficientNetV2(efficientnet_v2_s_config)
 efficientnet_v2_m_config = ModelConfig(
     model_name="EfficientNetV2-M",
     model_fn=efficientnet_v2_m,
-    final_in_features=1408,
+    final_in_features=1280,
     num_class=2, #出力の数
     input_channels=6,  # カスタム入力チャネル数
 )
