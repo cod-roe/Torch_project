@@ -70,26 +70,28 @@ save_path = OUTPUT_EXP + f"/{name}_metrics.pkl" # 保存と読み込みのパス
 
 # ファイルを読み込む
 model1_predictions = pd.read_csv(f'{OUTPUT}/submission/exp012_size96_0113_sub28_05.tsv', sep='\t', header=None)
-model2_predictions = pd.read_csv(f'{OUTPUT}/submission/exp101_Efv2M_0116_sub23_05.tsv', sep='\t', header=None)
-# model3_predictions = pd.read_csv(f'{OUTPUT}/submission/model3_sub.tsv', sep='\t', header=None)
+model2_predictions = pd.read_csv(f'{OUTPUT}/submission/exp102_Efv2L_0118_sub25_05.tsv', sep='\t', header=None)
+model3_predictions = pd.read_csv(f'{OUTPUT}/submission/exp103_Size128_Efs_0121_sub26_05.tsv', sep='\t', header=None)
 
 # 予測値部分だけ取得
 pred1 = model1_predictions[1]
 pred2 = model2_predictions[1]
-# pred3 = model3_predictions[1]
+pred3 = model3_predictions[1]
 #%%
 print(pred1.head())
 #%%
 
 #平均0.5以上なら1
-# ensemble_predictions = ((pred1 + pred2) / 2).astype(int)
-# ensemble_predictions = (ensemble_predictions >= 0.5).astype(int)
+ensemble_predictions = ((pred1 + pred2+ pred3) / 3).astype(int)
+ensemble_predictions = (ensemble_predictions >= 0.5).astype(int)
 #もしくは
-ensemble_predictions = ((pred1+pred2)>=1).astype(int)
+# ensemble_predictions = ((pred1+pred2)>=1).astype(int)
+# ensemble_predictions = ((pred3+pred2)>=1).astype(int)
+
 
 
 # 完全一致
-# ensemble_predictions = ((pred1 == 1) & (pred2 == 1)).astype(int)
+# ensemble_predictions = ((pred3 == 1) & (pred2 == 1)).astype(int)
 
 
 #%%
@@ -97,11 +99,11 @@ ensemble_predictions = ((pred1+pred2)>=1).astype(int)
 submit_df = model1_predictions.copy()
 submit_df[1] = ensemble_predictions
 #%%
-submit_df.to_csv(f'{OUTPUT}/submission/exp301_ensemble_sub.tsv', sep='\t', header=None, index=None)
+submit_df.to_csv(f'{OUTPUT}/submission/exp306_ensemble_sub.tsv', sep='\t', header=None, index=None)
 
 #%%
 #APIで提出
-# ! signate submit --competition-id=263 "C:\Users\Takashi Hao\Desktop\Working\Torch_project\src\output\submission\exp301_ensemble_sub.tsv" --note "アンサンブルSとM or"
+# ! signate submit --competition-id=263 "C:\Users\Takashi Hao\Desktop\Working\Torch_project\src\output\submission\exp306_ensemble_sub.tsv" --note "アンサンブルSとl 3or"
 #%%
 submit_df.head()
 
