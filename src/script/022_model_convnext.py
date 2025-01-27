@@ -105,6 +105,10 @@ class ConvNeXt(nn.Module):
 
 # %%
 # 使用例
+
+
+
+
 convnext_base_config = ModelConfig(
     model_name="ConvNeXt-Base",
     model_fn=convnext_base,
